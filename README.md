@@ -3,7 +3,7 @@
 #环境： python 2.7
 
 #执行方式： python trace_time.py -t xx -p xx -d xx
-
+          python trace_time.py -t 50 -m launch_task_time
 #参数说明：
 
 -t --time  次数
@@ -13,3 +13,4 @@
 -d --device  指定特定的设备，在电脑连接多台设备时使用
 
 -m --mode 默认time，手机手机启动时间；其他，多台设备同时启动，对比启动速度，不收集日志
+          launch_task_time : 启动task时间

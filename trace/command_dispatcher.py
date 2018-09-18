@@ -1,4 +1,7 @@
 from __future__ import print_function
+from json_file_editor import update_json_file
+from json_file_editor import task_configure_info
+from json_file_editor import TEST_JSON_FILE_PATH
 
 import os
 import subprocess
@@ -49,7 +52,26 @@ class CommandDispatcher(object):
             else:
                 trace_configure_info['trace_version_name'] = trace_version_pre + "_" + adb_app_version(
                     apks[0].get('pkg'))
-            run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times)
+            run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times, "launch_time.xlsx",
+                                 trace_configure_info.get('trace_version_name'))
+
+        elif trace_mode == 'launch_task_time':
+            if adb_app_version(apks[0].get('pkg')) == '0.0':
+                exit()
+            if trace_version_pre == '0.0':
+                trace_configure_info['trace_version_name'] = adb_app_version(apks[0].get('pkg'))
+            else:
+                trace_configure_info['trace_version_name'] = trace_version_pre + "_" + adb_app_version(
+                    apks[0].get('pkg'))
+            update_json_file("")
+            run_command_adb_push_file(TEST_JSON_FILE_PATH, '/sdcard/TaskTest.json')
+            run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times,
+                                 "launch_task_time.xlsx", trace_configure_info.get('trace_version_name'))
+            for key in task_configure_info:
+                update_json_file(task_configure_info.get(key))
+                run_command_adb_push_file(TEST_JSON_FILE_PATH,'/sdcard/TaskTest.json')
+                run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times,
+                                     'launch_task_time.xlsx', task_configure_info.get(key))
 
         elif trace_mode == 'thread_time':
             if adb_app_version(apks[0].get('pkg')) == '0.0':
@@ -92,14 +114,15 @@ def run_command_am_qiyi_and_qqlive(device_list, count):
         if len(device_list) - 1 >= 2:
             count -= 1
             stop_app_with_name('com.qiyi.video', device_list[0])
-            # stop_app_with_name('com.tencent.qqlive', device_list[1])
-            stop_app_with_name('com.qiyi.video', device_list[1])
+            stop_app_with_name('com.tencent.qqlive', device_list[1])
+            # stop_app_with_name('com.qiyi.video', device_list[1])
 
             t_qiyi = threading.Thread(target=thread_run_command_start_am,
                                       args=(device_list[0], 'com.qiyi.video/.WelcomeActivity'))
-            # t_qqlive = threading.Thread(target=thread_run_command_start_am, args=(device_list[1], 'com.tencent.qqlive/.ona.activity.WelcomeActivity'))
             t_qqlive = threading.Thread(target=thread_run_command_start_am,
-                                        args=(device_list[1], 'com.qiyi.video/.WelcomeActivity'))
+                                        args=(device_list[1], 'com.tencent.qqlive/.ona.activity.WelcomeActivity'))
+            # t_qqlive = threading.Thread(target=thread_run_command_start_am,
+            #                             args=(device_list[1], 'com.qiyi.video/.WelcomeActivity'))
             t_qiyi.start()
             t_qqlive.start()
             time.sleep(10)
@@ -115,10 +138,10 @@ def thread_run_command_start_am(device_name, activity_name):
     subprocess.check_output(cmd_qiyi.split())
 
 
-def run_command_am_start(activity, count):
+def run_command_am_start(activity, count, excel_file_name, column_name):
     if count <= 0:
-        write_excel(collect_data, apks[0].get('name') + "_" + 'trace_time.xlsx',
-                    trace_configure_info.get('trace_version_name'))
+        write_excel(collect_data, apks[0].get('name') + "_" + excel_file_name, column_name)
+        collect_data[:] = []
         return
     stop_app(apks[0].get('pkg'))
     print("Activity start times " + str(count))
@@ -126,8 +149,8 @@ def run_command_am_start(activity, count):
     result = subprocess.check_output(cmd.split())
     handle_trace_time_output(result)
     count -= 1
-    time.sleep(10)
-    run_command_am_start(activity, count)
+    time.sleep(5)
+    run_command_am_start(activity, count, excel_file_name, column_name)
 
 
 def run_command_am_start_and_save_log(activity_name, file_name, package):
@@ -153,6 +176,12 @@ def run_command_am_start_and_save_log(activity_name, file_name, package):
                 array_time.append(thread_time_re[length - 1])
         write_excel(array_thread_name, "trace_thread_time.xlsx", "thread")
         write_excel(array_time, "trace_thread_time.xlsx", "time")
+
+
+def run_command_adb_push_file(source_file_path, target_file_path):
+    cmd_push = 'adb push ' + source_file_path + ' ' + target_file_path
+    subprocess.check_output(cmd_push.split())
+    print('Push ' + source_file_path + ' to ' + target_file_path)
 
 
 def adb_app_version(pkg):

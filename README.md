@@ -12,5 +12,8 @@
 
 -d --device  指定特定的设备，在电脑连接多台设备时使用
 
--m --mode 默认time，手机手机启动时间；其他，多台设备同时启动，对比启动速度，不收集日志
-          launch_task_time : 启动task时间
+-m --mode
+
+* launch_time: 获取APP启动时间
+* launch_task_time : 启动task时间
+* 其他：多台设备同时启动，对比启动速度，不收集日志

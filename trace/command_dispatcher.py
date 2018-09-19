@@ -63,15 +63,22 @@ class CommandDispatcher(object):
             else:
                 trace_configure_info['trace_version_name'] = trace_version_pre + "_" + adb_app_version(
                     apks[0].get('pkg'))
-            update_json_file("")
-            run_command_adb_push_file(TEST_JSON_FILE_PATH, '/sdcard/TaskTest.json')
-            run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times,
-                                 "launch_task_time.xlsx", trace_configure_info.get('trace_version_name'))
+            loop_time = trace_times
             for key in task_configure_info:
-                update_json_file(task_configure_info.get(key))
-                run_command_adb_push_file(TEST_JSON_FILE_PATH,'/sdcard/TaskTest.json')
-                run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), trace_times,
-                                     'launch_task_time.xlsx', task_configure_info.get(key))
+                while trace_times > 0:
+                    times = loop_time / 10
+                    update_json_file("")
+                    run_command_adb_push_file(TEST_JSON_FILE_PATH, '/sdcard/TaskTest.json')
+                    run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), times,
+                                         "launch_task_time.xlsx",
+                                         trace_configure_info.get('trace_version_name') + "_" + task_configure_info.get(
+                                             key))
+                    update_json_file(task_configure_info.get(key))
+                    run_command_adb_push_file(TEST_JSON_FILE_PATH, '/sdcard/TaskTest.json')
+                    run_command_am_start(apks[0].get('pkg') + "/" + apks[0].get('welcome'), times,
+                                         'launch_task_time.xlsx', task_configure_info.get(key))
+                    trace_times -= times
+
 
         elif trace_mode == 'thread_time':
             if adb_app_version(apks[0].get('pkg')) == '0.0':
@@ -250,8 +257,13 @@ def create_excel(excel_file):
 def update_excel(excel_file, version, spend_time_list):
     workbook = openpyxl.load_workbook(excel_file)
     worksheet = workbook.get_sheet_by_name('Sheet1')
-    if read_excel(excel_file, version):
-        exit()
+
+    col_exist_number, row_exist_length = read_excel(excel_file, version)
+    is_exist_col = False
+    if col_exist_number != 0 and row_exist_length != 0:
+        is_exist_col = True
+        for i, value in enumerate(spend_time_list):
+            worksheet.cell(row=i + row_exist_length + 1, column=col_exist_number + 1).value = value
     else:
         cul_count = read_first_row_size(excel_file) + 1
         worksheet.cell(row=1, column=cul_count).value = version
@@ -260,7 +272,10 @@ def update_excel(excel_file, version, spend_time_list):
                 worksheet.cell(row=i + 2, column=cul_count).value = int(statN)
             else:
                 worksheet.cell(row=i + 2, column=cul_count).value = statN
-    print('Write ' + trace_configure_info.get('trace_version_name') + " size: " + str(collect_data) + ' success!')
+    if is_exist_col:
+        print('Write exit col ' + version + " size: " + str(collect_data) + ' success!')
+    else:
+        print('Write not exit col ' + version + " size: " + str(collect_data) + ' success!')
     workbook.save(excel_file)
 
 
@@ -270,16 +285,25 @@ def read_excel(excel_file, version):
     first_row_list = []
     try:
         first_row_list = worksheet.row_values(0)
+        print('First row list size : ' + str(len(first_row_list)))
     except Exception as e:
         print(str(e))
-
+    col_exist_number = -1
     for col in first_row_list:
+        col_exist_number += 1
         if version == col:
-            print(version + " col exist, break")
-            return True
+            col_exist_list = worksheet.col_values(0)
+            list_length = len(col_exist_list)
+            while list_length > 0:
+                if col_exist_list[list_length - 1] is None or col_exist_list[list_length - 1] == '':
+                    list_length -= 1
+                else:
+                    print(version + " col exist, col : " + str(col_exist_number) + ", row size : " + str(list_length))
+                    break
+            return col_exist_number, list_length
 
     print(version + " col not exist, write normal")
-    return False
+    return col_exist_number, 0
 
 
 def read_first_row_size(excel_file):
